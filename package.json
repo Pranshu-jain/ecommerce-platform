@@ -12,6 +12,7 @@
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
     "bcryptjs": "^2.4.3",
+    "framer-motion": "^12.40.0",
     "jsonwebtoken": "^9.0.2",
     "next": "14.2.5",
     "react": "^18",

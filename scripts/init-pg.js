@@ -1,7 +1,6 @@
 // Run once to set up the Neon PostgreSQL database:
 //   DATABASE_URL=<your_neon_url> node scripts/init-pg.js
 
-require('dotenv').config({ path: '.env.local' });
 const { neon } = require('@neondatabase/serverless');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
