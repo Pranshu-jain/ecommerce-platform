@@ -2,23 +2,61 @@ import ProductCard from '@/components/products/ProductCard';
 import { Product, Category } from '@/types';
 import Link from 'next/link';
 import Image from 'next/image';
+import { getDb } from '@/lib/db';
 
 async function getProducts(searchParams: Record<string, string>) {
-  const params = new URLSearchParams(searchParams);
-  if (!params.get('limit')) params.set('limit', '12');
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/products?${params}`, { cache: 'no-store' });
-    if (!res.ok) return { products: [], total: 0, pages: 0 };
-    return res.json();
-  } catch { return { products: [], total: 0, pages: 0 }; }
+    const sql = getDb();
+    const category = searchParams.category;
+    const featured = searchParams.featured;
+    const search = searchParams.search;
+    const page = parseInt(searchParams.page || '1');
+    const limit = parseInt(searchParams.limit || '12');
+    const offset = (page - 1) * limit;
+
+    const params: (string | number | boolean)[] = [];
+    let idx = 1;
+    let query = `
+      SELECT p.*, c.name as category_name, c.slug as category_slug,
+        AVG(r.rating) as avg_rating, COUNT(r.id) as review_count
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN reviews r ON p.id = r.product_id
+      WHERE p.active = true
+    `;
+    if (category) { query += ` AND c.slug = $${idx++}`; params.push(category); }
+    if (featured === 'true') { query += ` AND p.featured = true`; }
+    if (search) {
+      query += ` AND (p.name ILIKE $${idx++} OR p.description ILIKE $${idx++})`;
+      params.push(`%${search}%`, `%${search}%`);
+    }
+    query += ` GROUP BY p.id, c.name, c.slug ORDER BY p.created_at DESC LIMIT $${idx++} OFFSET $${idx++}`;
+    params.push(limit, offset);
+
+    const rows = await sql(query, params);
+
+    let countQuery = `SELECT COUNT(*) as total FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.active = true`;
+    const countParams: (string | number)[] = [];
+    let ci = 1;
+    if (category) { countQuery += ` AND c.slug = $${ci++}`; countParams.push(category); }
+    if (search) { countQuery += ` AND (p.name ILIKE $${ci++} OR p.description ILIKE $${ci++})`; countParams.push(`%${search}%`, `%${search}%`); }
+    const [{ total }] = await sql(countQuery, countParams);
+
+    const products = rows.map((p: Record<string, unknown>) => ({
+      ...p,
+      images: typeof p.images === 'string' ? JSON.parse(p.images || '[]') : (p.images ?? []),
+      tags: typeof p.tags === 'string' ? JSON.parse(p.tags || '[]') : (p.tags ?? []),
+    }));
+
+    return { products, total: Number(total), pages: Math.ceil(Number(total) / limit) };
+  } catch (e) { console.error(e); return { products: [], total: 0, pages: 0 }; }
 }
 
 async function getCategories(): Promise<Category[]> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/categories`, { cache: 'no-store' });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.categories || [];
+    const sql = getDb();
+    const rows = await sql`SELECT * FROM categories ORDER BY name ASC`;
+    return rows as Category[];
   } catch { return []; }
 }
 

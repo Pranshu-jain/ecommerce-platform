@@ -2,23 +2,35 @@ import Link from 'next/link';
 import Image from 'next/image';
 import ProductCard from '@/components/products/ProductCard';
 import HomeAnimations from '@/components/home/HomeAnimations';
+import { getDb } from '@/lib/db';
 import { Product, Category } from '@/types';
 
 async function getFeaturedProducts(): Promise<Product[]> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/products?featured=true&limit=8`, { cache: 'no-store' });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.products || [];
+    const sql = getDb();
+    const rows = await sql`
+      SELECT p.*, c.name as category_name, c.slug as category_slug,
+        AVG(r.rating) as avg_rating, COUNT(r.id) as review_count
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN reviews r ON p.id = r.product_id
+      WHERE p.active = true AND p.featured = true
+      GROUP BY p.id, c.name, c.slug
+      ORDER BY p.created_at DESC LIMIT 8
+    `;
+    return rows.map((p: Record<string, unknown>) => ({
+      ...p,
+      images: typeof p.images === 'string' ? JSON.parse(p.images || '[]') : (p.images ?? []),
+      tags: typeof p.tags === 'string' ? JSON.parse(p.tags || '[]') : (p.tags ?? []),
+    })) as Product[];
   } catch { return []; }
 }
 
 async function getCategories(): Promise<Category[]> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/categories`, { cache: 'no-store' });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.categories || [];
+    const sql = getDb();
+    const rows = await sql`SELECT * FROM categories ORDER BY name ASC`;
+    return rows as Category[];
   } catch { return []; }
 }
 
