@@ -24,6 +24,7 @@ export interface Product {
   stock: number;
   category_id?: string;
   category?: Category;
+  category_name?: string;
   image_url?: string;
   images: string[];
   tags: string[];
@@ -32,6 +33,7 @@ export interface Product {
   created_at: string;
   avg_rating?: number;
   review_count?: number;
+  [key: string]: unknown;
 }
 
 export interface CartItem {
@@ -51,6 +53,9 @@ export interface Order {
   payment_intent_id?: string;
   items: OrderItem[];
   created_at: string;
+  user_name?: string;
+  user_email?: string;
+  [key: string]: unknown;
 }
 
 export interface OrderItem {
@@ -60,6 +65,9 @@ export interface OrderItem {
   product?: Product;
   quantity: number;
   price: number;
+  name?: string;
+  image_url?: string;
+  [key: string]: unknown;
 }
 
 export interface ShippingAddress {

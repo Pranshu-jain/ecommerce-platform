@@ -6,21 +6,16 @@ import { signToken } from '@/lib/auth';
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
-
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
-
-    const db = getDb();
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as Record<string, string> | undefined;
-
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    const sql = getDb();
+    const [user] = await sql`SELECT * FROM users WHERE email = ${email}`;
+    if (!user || !(await bcrypt.compare(password, user.password as string))) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
-
-    const token = signToken({ userId: user.id, email: user.email, role: user.role });
+    const token = signToken({ userId: user.id as string, email: user.email as string, role: user.role as string });
     const { password: _pw, ...safeUser } = user;
-
     const res = NextResponse.json({ user: safeUser, token });
     res.cookies.set('auth_token', token, { httpOnly: true, maxAge: 60 * 60 * 24 * 7 });
     return res;

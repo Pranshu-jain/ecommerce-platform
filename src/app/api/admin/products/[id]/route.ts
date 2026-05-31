@@ -10,24 +10,25 @@ function requireAdmin(req: NextRequest) {
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   if (!requireAdmin(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const sql = getDb();
   const body = await req.json();
   const { name, slug, description, price, compare_price, stock, category_id, image_url, images, tags, featured, active } = body;
 
-  const db = getDb();
-  db.prepare(`
-    UPDATE products SET name=?, slug=?, description=?, price=?, compare_price=?, stock=?,
-    category_id=?, image_url=?, images=?, tags=?, featured=?, active=?
-    WHERE id=?
-  `).run(name, slug, description, price, compare_price || null, stock, category_id || null,
-    image_url, JSON.stringify(images || []), JSON.stringify(tags || []),
-    featured ? 1 : 0, active !== false ? 1 : 0, params.id);
-
+  await sql`
+    UPDATE products SET
+      name = ${name}, slug = ${slug}, description = ${description ?? null},
+      price = ${price}, compare_price = ${compare_price ?? null}, stock = ${stock},
+      category_id = ${category_id ?? null}, image_url = ${image_url ?? null},
+      images = ${JSON.stringify(images ?? [])}, tags = ${JSON.stringify(tags ?? [])},
+      featured = ${!!featured}, active = ${active !== false}
+    WHERE id = ${params.id}
+  `;
   return NextResponse.json({ success: true });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   if (!requireAdmin(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  const db = getDb();
-  db.prepare('UPDATE products SET active = 0 WHERE id = ?').run(params.id);
+  const sql = getDb();
+  await sql`UPDATE products SET active = false WHERE id = ${params.id}`;
   return NextResponse.json({ success: true });
 }

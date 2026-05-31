@@ -3,33 +3,28 @@ import { getDb } from '@/lib/db';
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const db = getDb();
-    const product = db.prepare(`
+    const sql = getDb();
+    const [product] = await sql`
       SELECT p.*, c.name as category_name, c.slug as category_slug,
         AVG(r.rating) as avg_rating, COUNT(r.id) as review_count
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
       LEFT JOIN reviews r ON p.id = r.product_id
-      WHERE (p.id = ? OR p.slug = ?) AND p.active = 1
-      GROUP BY p.id
-    `).get(params.id, params.id) as Record<string, unknown> | undefined;
+      WHERE (p.id = ${params.id} OR p.slug = ${params.id}) AND p.active = true
+      GROUP BY p.id, c.name, c.slug
+    `;
+    if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
 
-    if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
-    }
-
-    const reviews = db.prepare(`
+    const reviews = await sql`
       SELECT r.*, u.name as user_name FROM reviews r
       LEFT JOIN users u ON r.user_id = u.id
-      WHERE r.product_id = ? ORDER BY r.created_at DESC
-    `).all(product.id as string);
+      WHERE r.product_id = ${product.id as string} ORDER BY r.created_at DESC
+    `;
 
     return NextResponse.json({
       ...product,
-      images: JSON.parse((product.images as string) || '[]'),
-      tags: JSON.parse((product.tags as string) || '[]'),
-      featured: Boolean(product.featured),
-      active: Boolean(product.active),
+      images: typeof product.images === 'string' ? JSON.parse(product.images || '[]') : (product.images ?? []),
+      tags: typeof product.tags === 'string' ? JSON.parse(product.tags || '[]') : (product.tags ?? []),
       reviews,
     });
   } catch (error) {

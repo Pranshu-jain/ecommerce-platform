@@ -22,7 +22,7 @@ export default function AdminPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const [prodRes, ordRes] = await Promise.all([
       fetch('/api/admin/products', { headers, credentials: 'include' }),
       fetch('/api/admin/orders', { headers, credentials: 'include' }),
